@@ -1,25 +1,157 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+
+# Reproducible Research Assignment 1
+##Author: Eric Solano
 
 
-## Loading and preprocessing the data
+## 1. Loading and preprocessing the data
+
+Transform the date variable to an R "Date" data type.  
+
+```{r}
+setwd("F:/001_KNOWLEDGE/R100_Sciences&Engineering/Math_Statistics_DataScience/DATA_SCIENCE_Coursera/Reproducible_Research/Assignment_1")
+activity <- read.csv("data/activity.csv")
+
+activity$date <- as.Date(as.character(activity$date), format = "%Y-%m-%d")
+
+sapply(activity, class)
+
+```
+
+
+## 2. Mean total number of steps taken per day
+
+The missing values were ignored by taking the complete cases.  
+The total number of steps taken per day were calculated using the 'aggregate' function.  
 
 
 
-## What is mean total number of steps taken per day?
+```{r}
+library(plyr)
+activityc <- activity[complete.cases(activity),]
+totalsteps <- aggregate(steps ~ date, data = activityc, sum)
+hist(totalsteps$steps, breaks=20, main="Distribution of Total Steps", xlab="Total Steps")
+
+```
+
+
+The mean and median of the number of steps taken per day were calculated.  
+A table summarizing the total, mean and median steps per day is presented below.  
+
+```{r}
+meansteps <-  aggregate(steps ~ date, data = activityc, mean)
+
+table1 <- merge(totalsteps, meansteps, by=c("date"))
+table1 <- rename(table1, c("steps.x"="total", "steps.y"="mean"))
+
+mediansteps <-  aggregate(steps ~ date, data = activityc, median)
+finaltable <- merge(table1, mediansteps, by=c("date"))
+finaltable <- rename(finaltable, c("steps"="median"))
+
+library(knitr)
+kable(finaltable, digits = 2)
+```
+
+
+## 3. Average daily activity pattern
+
+The average number of steps taken for each 5-minute interval, averaged across all days, was calculated.  
+The time series plot shows the Average daily activity pattern.  
+
+```{r}
+intervalavg <- aggregate(steps~interval, data = activityc, mean)
+maxinterv <- intervalavg[which.max(intervalavg$steps),]
+
+plot(intervalavg$interval, intervalavg$steps, type="l", main="Average daily activity pattern",
+                             xlab="5-minute Interval", ylab="Average Steps Taken")
+abline(v=maxinterv$interval, col="red")
+
+```
+
+The interval with the maximum number of steps is interval: `r maxinterv$interval` with `r round(maxinterv$steps,1)` steps in average.
+
+
+## 4. Imputing missing values
+
+The total number of missing values in the dataset was calculated by using the 'is.na' function.  
+
+```{r}
+nmiss <- activity[is.na(activity),]
+```
+
+A total of `r nrow(nmiss)` rows have missing values.
+A missing number-of-steps value will be replaced with the average value for that specific 5-minute interval. 
+A new dataset was created containing the imputed values.
+
+```{r}
+activity$steps2 <- activity$steps
+for (i in 1:nrow(activity)){
+      if (is.na(activity[i,]$steps)){
+              activity[i,]$steps2 <- intervalavg[which(intervalavg$interval==activity[i,]$interval),]$steps
+      }
+}
+
+```
+
+
+A histogram of the total number of steps taken each day was created with the new dataset.  
+The mean and median total number of steps taken per day were calculated with the new dataset.  
+These values differ from the estimates from the first part of the assignment.  
+When imputing missing data on the estimates of the total daily number of steps,  
+
+
+```{r}
+totalsteps2 <- aggregate(steps2 ~ date, data = activity, sum)
+hist(totalsteps2$steps2, breaks=20, main="Distribution of Total Steps", xlab="Total Steps with Imputed Data")
+
+meansteps2 <-  aggregate(steps2 ~ date, data = activity, mean)
+
+table2 <- merge(totalsteps2, meansteps2, by=c("date"))
+table2 <- rename(table2, c("steps2.x"="total.imp", "steps2.y"="mean.imp"))
+
+mediansteps2 <-  aggregate(steps2 ~ date, data = activity, median)
+finaltable2 <- merge(table2, mediansteps2, by=c("date"))
+finaltable2 <- rename(finaltable2, c("steps2"="median.imp"))
+
+#mergedtables <- merge(finaltable, finaltable2, by=c("date"))
+
+library(knitr)
+kable(finaltable2, digits = 2)
+
+```
+
+The values shown on the table above do not differ from the values in Section 2.  
+The reason for this is that the missing values were missing for entire days, in other words when a day had data, it had data for the entire day.  
+
+
+## 5. Differences in activity patterns between weekdays and weekends
+
+A new factor variable was created in the dataset indicating "weekday" or "weekend".  
+
+
+```{r}
+weekend <- c("Saturday", "Sunday")
+
+activity$dayname <- weekdays(activity$date)
+activity$daytype <- "weekday"
+
+for (i in 1:nrow(activity)){
+      if (activity[i,]$dayname %in% weekend){
+              activity[i,]$daytype <- "weekend"
+      }
+}
+
+activity$daytype <- as.factor(activity$daytype)
+
+intervalavg2 <- aggregate(steps2~interval+daytype, data = activity, mean)
 
 
 
-## What is the average daily activity pattern?
+library(lattice) 
+xyplot(steps2~interval|daytype,
+   data=intervalavg2, type="l", main="Average daily activity pattern", xlab="Interval", ylab="Average Steps")
 
 
+```
 
-## Imputing missing values
+From the plots, it seems that this person had two different activity patterns during the weekend versus the weekdays. 
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
